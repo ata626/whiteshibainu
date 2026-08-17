@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>白柴的存錢冒險</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/2.44.0/iconfont/tabler-icons.min.css">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: #FFFBF5;
+    color: #6B5335;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+  }
+  .app { width: 100%; max-width: 420px; }
+  .card {
+    background: #FFFFFF;
+    border: 1px solid #F0E4D3;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  h1 { font-size: 18px; text-align: center; margin-bottom: 4px; }
+  .subtitle { text-align: center; font-size: 12px; color: #A98A66; margin-bottom: 16px; }
+  .shiba-box { text-align: center; margin-bottom: 8px; }
+  #shibaEmoji { font-size: 72px; transition: transform 0.3s; display: inline-block; }
+  #shibaStage { font-size: 14px; font-weight: 600; margin-top: 4px; }
+  .bar-bg { height: 10px; background: #F0E4D3; border-radius: 5px; overflow: hidden; }
+  .bar-fill { height: 100%; background: #E8A855; transition: width 0.5s; }
+  .bar-fill.blue { background: #D9A15B; }
+  .row-between { display: flex; justify-content: space-between; align-items: center; }
+  .small { font-size: 12px; color: #A98A66; }
+  .goal-item { border: 1px solid #F0E4D3; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+  .goal-title { font-weight: 600; font-size: 14px; }
+  .quest-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 8px; background: #FFFBF5; margin-bottom: 6px; font-size: 13px; cursor: pointer; }
+  .quest-item.done { opacity: 0.5; text-decoration: line-through; }
+  input, select {
+    width: 100%; height: 40px; padding: 0 10px; border-radius: 8px;
+    border: 1px solid #F0E4D3; background: #FFFBF5; color: #6B5335;
+    font-size: 14px; margin-bottom: 8px;
+  }
+  button {
+    height: 42px; border: none; border-radius: 10px; font-weight: 600;
+    cursor: pointer; font-size: 14px;
+  }
+  .btn-primary { width: 100%; background: #E8A855; color: white; }
+  .btn-small { padding: 4px 10px; height: 28px; font-size: 12px; background: #F0E4D3; color: #6B5335; border-radius: 6px; }
+  .sound-toggle { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: #A98A66; margin-top: 4px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🐾 白柴的存錢冒險</h1>
+  <div class="subtitle">存錢就像養一隻柴犬，一起長大吧！</div>
+
+  <div class="card">
+    <div class="shiba-box">
+      <img id="shibaEmoji" src="01.png" style="width:120px; height:120px; object-fit:contain;">
+      <div id="shibaStage">幼犬階段</div>
+    </div>
+    <div class="bar-bg"><div id="growthBar" class="bar-fill" style="width:0%"></div></div>
+    <div class="row-between small" style="margin-top:4px;">
+      <span id="growthText">距離下一階段還差 100%</span>
+      <span id="streakText">🍚 連續 0 天</span>
+    </div>
+    <div class="sound-toggle" onclick="toggleSound()">
+      <span id="soundIcon">🔊</span><span id="soundLabel">音效開啟</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <strong style="font-size:14px;">🍖 今天存多少錢？</strong>
+    <div style="margin-top:8px;">
+      <select id="goalSelect"></select>
+      <input id="depositAmount" type="number" placeholder="輸入存入金額">
+      <button class="btn-primary" onclick="deposit()">存入</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row-between" style="margin-bottom:8px;">
+      <strong style="font-size:14px;">🎯 大目標</strong>
+      <button class="btn-small" onclick="toggleForm('goalForm')">+ 新增</button>
+    </div>
+    <div id="goalForm" style="display:none; margin-bottom:10px;">
+      <input id="goalName" placeholder="目標名稱（例：日本旅遊基金）">
+      <input id="goalTarget" type="number" placeholder="目標金額">
+      <button class="btn-primary" onclick="addGoal()">建立目標</button>
+    </div>
+    <div id="goalList"></div>
+  </div>
+
+  <div class="card">
+    <div class="row-between" style="margin-bottom:8px;">
+      <strong style="font-size:14px;">🦴 骨頭任務（小目標）</strong>
+      <button class="btn-small" onclick="toggleForm('questForm')">+ 新增</button>
+    </div>
+    <div id="questForm" style="display:none; margin-bottom:10px;">
+      <input id="questAmount" type="number" placeholder="這個任務要餵多少錢？（選填）">
+      <input id="questName" placeholder="任務名稱（例：戒一次手搖飲）">
+      <button class="btn-primary" onclick="addQuest()">建立任務</button>
+    </div>
+    <div id="questList"></div>
+  </div>
+</div>
+
+<script>
+let state = JSON.parse(localStorage.getItem('shibaSavingsData')) || {
+  goals: [], quests: [], lastDepositDate: null, streak: 0, soundOn: true,
+};
+
+function save() { localStorage.setItem('shibaSavingsData', JSON.stringify(state)); }
+
+const stages = [
+  { min: 0,  image: "01.png", label: "幼犬階段" },
+  { min: 30, image: "02.png", label: "少年階段" },
+  { min: 65, image: "03.png", label: "成犬階段" },
+  { min: 90, image: "04.png", label: "富貴白柴" }
+];
+
+function totalProgressPct() {
+  const totalTarget = state.goals.reduce((s, g) => s + g.target, 0);
+  const totalCurrent = state.goals.reduce((s, g) => s + g.current, 0);
+  if (totalTarget === 0) return 0;
+  return Math.min(100, (totalCurrent / totalTarget) * 100);
+}
+
+function currentStage(pct) {
+  let stage = stages[0];
+  for (const s of stages) if (pct >= s.min) stage = s;
+  return stage;
+}
+
+const sounds = {
+  deposit: new Audio('錢錢.mp3'),
+  levelup: new Audio('錢錢.mp3'),
+  quest: new Audio('錢錢.mp3'),
+};
+
+function playSound(type) {
+  if (!state.soundOn) return;
+  const sound = sounds[type];
+  if (!sound) return;
+  sound.currentTime = 0;
+  sound.play();
+}
+
+function showCelebration() {
+  playSound('levelup');
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:9999; pointer-events:none;';
+  overlay.innerHTML = `
+    <div style="background:#FFFFFF; border:2px solid #E8A855; border-radius:20px; padding:24px 32px; text-align:center; box-shadow:0 8px 24px rgba(0,0,0,0.15); animation:popIn 0.4s ease;">
+      <div style="font-size:48px;">🎉🐾🎉</div>
+      <div style="font-size:16px; font-weight:700; color:#6B5335; margin-top:8px;">今日任務全部完成！</div>
+      <div style="font-size:13px; color:#A98A66; margin-top:4px;">小柴超開心的～</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const style = document.createElement('style');
+  style.textContent = '@keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }';
+  document.head.appendChild(style);
+
+  setTimeout(() => { overlay.remove(); style.remove(); }, 2200);
+}
+
+function toggleSound() {
+  state.soundOn = !state.soundOn;
+  document.getElementById('soundIcon').textContent = state.soundOn ? '🔊' : '🔇';
+  document.getElementById('soundLabel').textContent = state.soundOn ? '音效開啟' : '音效關閉';
+  save();
+}
+
+function renderShiba() {
+  const pct = totalProgressPct();
+  document.getElementById('growthBar').style.width = pct + '%';
+  const stage = currentStage(pct);
+  document.getElementById('shibaEmoji').src = stage.image;
+  document.getElementById('shibaStage').textContent = stage.label;
+  const next = stages.find(s => s.min > pct);
+  document.getElementById('growthText').textContent = next
+    ? `距離下一階段還差 ${Math.round(next.min - pct)}%`
+    : '已達最高階段！';
+  document.getElementById('streakText').textContent = `🍚 連續 ${state.streak} 天`;
+  document.getElementById('soundIcon').textContent = state.soundOn ? '🔊' : '🔇';
+  document.getElementById('soundLabel').textContent = state.soundOn ? '音效開啟' : '音效關閉';
+}
+
+function toggleForm(id) {
+  const el = document.getElementById(id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function addGoal() {
+  const name = document.getElementById('goalName').value.trim();
+  const target = Number(document.getElementById('goalTarget').value);
+  if (!name || !target) return;
+  state.goals.push({ id: Date.now(), name, target, current: 0 });
+  document.getElementById('goalName').value = '';
+  document.getElementById('goalTarget').value = '';
+  toggleForm('goalForm');
+  save(); renderAll();
+}
+
+function renderGoals() {
+  const list = document.getElementById('goalList');
+  const select = document.getElementById('goalSelect');
+  list.innerHTML = ''; select.innerHTML = '';
+  if (state.goals.length === 0) {
+    list.innerHTML = '<div class="small">還沒有目標，點右上角新增一個吧！</div>';
+  }
+  state.goals.forEach(g => {
+    const pct = Math.min(100, (g.current / g.target) * 100);
+    const isDone = pct >= 100;
+    const div = document.createElement('div');
+    div.className = 'goal-item';
+    div.innerHTML = `
+      <div class="row-between">
+        <span class="goal-title">${isDone ? '🏆 ' : ''}${g.name}</span>
+        <span class="small">${Math.round(pct)}%</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill blue" style="width:${pct}%"></div></div>
+      <div class="row-between" style="margin-top:4px;">
+        <span class="small">NT$ ${g.current.toLocaleString()} / ${g.target.toLocaleString()}</span>
+        ${isDone ? `<button class="btn-small" data-delete-goal="${g.id}" style="background:#F0E4D3;">刪除目標</button>` : ''}
+      </div>
+    `;
+    list.appendChild(div);
+
+    if (!isDone) {
+      const opt = document.createElement('option');
+      opt.value = g.id; opt.textContent = g.name;
+      select.appendChild(opt);
+    }
+  });
+
+  list.querySelectorAll('[data-delete-goal]').forEach(btn => {
+    btn.onclick = () => {
+      const id = Number(btn.dataset.deleteGoal);
+      state.goals = state.goals.filter(g => g.id !== id);
+      save(); renderAll();
+    };
+  });
+}
+
+function addQuest() {
+  const name = document.getElementById('questName').value.trim();
+  const amount = Number(document.getElementById('questAmount').value) || 0;
+  if (!name) return;
+  state.quests.push({ id: Date.now(), name, amount, done: false });
+  document.getElementById('questName').value = '';
+  document.getElementById('questAmount').value = '';
+  toggleForm('questForm');
+  save(); renderAll();
+}
+
+function renderQuests() {
+  const list = document.getElementById('questList');
+  list.innerHTML = '';
+  if (state.quests.length === 0) {
+    list.innerHTML = '<div class="small">還沒有任務，點右上角新增一個吧！</div>';
+    return;
+  }
+  state.quests.forEach(q => {
+    const amountLabel = q.amount > 0 ? `NT$${q.amount.toLocaleString()} ｜ ` : '';
+    const div = document.createElement('div');
+    div.className = 'quest-item' + (q.done ? ' done' : '');
+  div.innerHTML = `
+      <span style="flex:1; cursor:pointer;" data-toggle-quest="${q.id}">${q.done ? '✅' : '⬜'} ${amountLabel}${q.name}</span>
+      <span style="display:flex; align-items:center; gap:10px;">
+        🦴
+        <span data-edit-quest="${q.id}" style="cursor:pointer; color:#A98A66; font-size:16px;">✏️</span>
+        <span data-delete-quest="${q.id}" style="cursor:pointer; color:#A98A66; font-size:16px;">🗑️</span>
+      </span>
+    `;
+    list.appendChild(div);
+  });
+
+  list.querySelectorAll('[data-toggle-quest]').forEach(el => {
+    el.onclick = () => {
+      const id = Number(el.dataset.toggleQuest);
+      const q = state.quests.find(q => q.id === id);
+      const wasDone = q.done;
+      q.done = !q.done;
+      if (!wasDone && q.done) playSound('quest');
+      save(); renderQuests();
+      checkAllQuestsDone();
+    };
+  });
+
+  list.querySelectorAll('[data-edit-quest]').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      const id = Number(el.dataset.editQuest);
+      const q = state.quests.find(q => q.id === id);
+      const newName = prompt('修改任務名稱：', q.name);
+      if (newName === null) return;
+      if (newName.trim() === '') { alert('任務名稱不能空白'); return; }
+      const newAmountStr = prompt('修改金額（不用輸入可留空）：', q.amount || '');
+      if (newAmountStr === null) return;
+      q.name = newName.trim();
+      q.amount = Number(newAmountStr) || 0;
+      save(); renderQuests();
+    };
+  });
+
+  list.querySelectorAll('[data-delete-quest]').forEach(el => {
+    el.onclick = (e) => {
+      e.stopPropagation();
+      const id = Number(el.dataset.deleteQuest);
+      state.quests = state.quests.filter(q => q.id !== id);
+      save(); renderQuests();
+    };
+  });
+}
+
+function checkAllQuestsDone() {
+  if (state.quests.length === 0) return;
+  const allDone = state.quests.every(q => q.done);
+  if (allDone && !state.celebratedQuests) {
+    state.celebratedQuests = true;
+    save();
+    showCelebration();
+  } else if (!allDone) {
+    state.celebratedQuests = false;
+    save();
+  }
+}
+
+function deposit() {
+  const goalId = Number(document.getElementById('goalSelect').value);
+  const amount = Number(document.getElementById('depositAmount').value);
+  if (!goalId || !amount || amount <= 0) return;
+
+  const goal = state.goals.find(g => g.id === goalId);
+  if (!goal) return;
+
+  const pctBefore = totalProgressPct();
+  const stageBefore = currentStage(pctBefore);
+
+  goal.current += amount;
+
+  const today = new Date().toDateString();
+  if (state.lastDepositDate !== today) {
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    state.streak = (state.lastDepositDate === yesterday) ? state.streak + 1 : 1;
+    state.lastDepositDate = today;
+  }
+
+  document.getElementById('depositAmount').value = '';
+  save(); renderAll();
+
+  if (document.getElementById('goalSelect').options.length === 0) return;
+
+  const pctAfter = totalProgressPct();
+  const stageAfter = currentStage(pctAfter);
+
+  const shiba = document.getElementById('shibaEmoji');
+  shiba.style.transform = 'scale(1.3) rotate(-8deg)';
+  setTimeout(() => { shiba.style.transform = 'scale(1) rotate(0deg)'; }, 300);
+
+  if (stageAfter.label !== stageBefore.label) {
+    playSound('levelup');
+  } else {
+    playSound('deposit');
+  }
+}
+
+function renderAll() {
+  renderShiba(); renderGoals(); renderQuests();
+}
+renderAll();
+</script>
+</body>
+</html>
